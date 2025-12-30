@@ -12962,7 +12962,7 @@ const details = (action, resources, operator) => {
     return str;
 }
 
-const splitComment = (body) => {
+const splitComment = (body, expandDetails) => {
     if (body.length <= MAX_COMMENT_SIZE) {
         return [body];
     }
@@ -12982,15 +12982,36 @@ const splitComment = (body) => {
             splitIndex = MAX_COMMENT_SIZE; // Fallback: hard split
         }
 
-        chunks.push(remaining.substring(0, splitIndex));
+        let chunk = remaining.substring(0, splitIndex);
+
+        // Check if we're inside an open code block and close it
+        const codeBlockCount = (chunk.match(/```/g) || []).length;
+        if (codeBlockCount % 2 !== 0) {
+            chunk += '\n```';
+        }
+
+        // Check if we're inside an open <details> tag and close it
+        const detailsOpenCount = (chunk.match(/<details/g) || []).length;
+        const detailsCloseCount = (chunk.match(/<\/details>/g) || []).length;
+        if (detailsOpenCount > detailsCloseCount) {
+            chunk += '\n</details>';
+        }
+
+        chunks.push(chunk);
         remaining = remaining.substring(splitIndex + 1);
     }
 
-    // Add part headers if multiple chunks
+    // Add part headers and wrap continuation chunks in details
     if (chunks.length > 1) {
-        return chunks.map((chunk, i) =>
-            `**Part ${i + 1}/${chunks.length}**\n\n${chunk}`
-        );
+        const expandAttr = expandDetails ? ' open' : '';
+        return chunks.map((chunk, i) => {
+            if (i === 0) {
+                return `**Part ${i + 1}/${chunks.length}**\n\n${chunk}`;
+            } else {
+                // Wrap continuation chunks in expandable details
+                return `**Part ${i + 1}/${chunks.length}**\n\n<details${expandAttr}>\n<summary><b>Continued...</b></summary>\n\n${chunk}\n</details>`;
+            }
+        });
     }
 
     return chunks;
@@ -13018,7 +13039,7 @@ const splitComment = (body) => {
         }
 
         const commentBody = output();
-        const chunks = splitComment(commentBody);
+        const chunks = splitComment(commentBody, expandDetailsComment);
 
         core.info(`Adding ${chunks.length} comment(s) to PR`);
         core.info(`Comment: ${commentBody}`);
