@@ -3,7 +3,7 @@
 This document defines the rules that **all AI tools, agents, and assistants must follow across this project.**
 Every commit, PR, build, or automated action executed by an AI must comply with these standards.
 
----
+----
 
 ## 1. Commit Message Standards
 
