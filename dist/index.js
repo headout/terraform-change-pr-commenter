@@ -12962,7 +12962,7 @@ const details = (action, resources, operator) => {
     return str;
 }
 
-const splitComment = (body, expandDetails) => {
+const splitComment = (body) => {
     if (body.length <= MAX_COMMENT_SIZE) {
         return [body];
     }
@@ -13003,13 +13003,12 @@ const splitComment = (body, expandDetails) => {
 
     // Add part headers and wrap continuation chunks in details
     if (chunks.length > 1) {
-        const expandAttr = expandDetails ? ' open' : '';
         return chunks.map((chunk, i) => {
             if (i === 0) {
                 return `**Part ${i + 1}/${chunks.length}**\n\n${chunk}`;
             } else {
-                // Wrap continuation chunks in expandable details
-                return `**Part ${i + 1}/${chunks.length}**\n\n<details${expandAttr}>\n<summary><b>Continued...</b></summary>\n\n${chunk}\n</details>`;
+                // Wrap continuation chunks in collapsed details
+                return `**Part ${i + 1}/${chunks.length}**\n\n<details>\n<summary><b>Continued...</b></summary>\n\n${chunk}\n</details>`;
             }
         });
     }
@@ -13039,7 +13038,7 @@ const splitComment = (body, expandDetails) => {
         }
 
         const commentBody = output();
-        const chunks = splitComment(commentBody, expandDetailsComment);
+        const chunks = splitComment(commentBody);
 
         core.info(`Adding ${chunks.length} comment(s) to PR`);
         core.info(`Comment: ${commentBody}`);
