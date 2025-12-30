@@ -18,14 +18,34 @@ const quietMode = core.getInput('quiet') === 'true';
 const includeLinkToWorkflow = core.getInput('include-workflow-link') === 'true';
 
 // Read header from file if provided, otherwise use comment-header input
-const commentHeader = headerFile && fs.existsSync(headerFile)
-    ? fs.readFileSync(headerFile, 'utf8').trim()
-    : commentHeaderInput.join('\n');
+let commentHeader;
+if (headerFile) {
+    core.info(`Header file input: ${headerFile}`);
+    if (fs.existsSync(headerFile)) {
+        commentHeader = fs.readFileSync(headerFile, 'utf8').trim();
+        core.info(`Read header from file: ${commentHeader}`);
+    } else {
+        core.warning(`Header file not found: ${headerFile}`);
+        commentHeader = commentHeaderInput.join('\n');
+    }
+} else {
+    commentHeader = commentHeaderInput.join('\n');
+}
 
 // Read footer from file if provided, otherwise use comment-footer input
-const commentFooter = footerFile && fs.existsSync(footerFile)
-    ? fs.readFileSync(footerFile, 'utf8').trim()
-    : commentFooterInput.join('\n');
+let commentFooter;
+if (footerFile) {
+    core.info(`Footer file input: ${footerFile}`);
+    if (fs.existsSync(footerFile)) {
+        commentFooter = fs.readFileSync(footerFile, 'utf8').trim();
+        core.info(`Read footer from file (${commentFooter.length} chars)`);
+    } else {
+        core.warning(`Footer file not found: ${footerFile}`);
+        commentFooter = commentFooterInput.join('\n');
+    }
+} else {
+    commentFooter = commentFooterInput.join('\n');
+}
 
 
 const workflowLink = includeLinkToWorkflow ? `
