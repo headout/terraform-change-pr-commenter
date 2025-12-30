@@ -2,6 +2,8 @@ const core = require('@actions/core');
 const github = require('@actions/github');
 const fs = require('fs');
 
+const MAX_COMMENT_SIZE = 60000; // GitHub limit is 65,536, leave buffer
+
 const expandDetailsComment = core.getBooleanInput('expand-comment');
 const includePlanSummary = core.getBooleanInput('include-plan-job-summary');
 const myToken = core.getInput('github-token');
@@ -112,35 +114,76 @@ const details = (action, resources, operator) => {
     return str;
 }
 
-try {
-    if (includePlanSummary) {
-        core.info("Adding plan output to job summary")
-        core.summary.addHeading('Terraform Plan Results').addRaw(output()).write()
+const splitComment = (body) => {
+    if (body.length <= MAX_COMMENT_SIZE) {
+        return [body];
     }
 
-    if (context.eventName === 'pull_request') {
-        core.info(`Found PR # ${context.issue.number} from workflow context - proceeding to comment.`)
-    } else {
-        core.warning("Action doesn't seem to be running in a PR workflow context.")
-        core.warning("Skipping comment creation.")
-        process.exit(0);
+    const chunks = [];
+    let remaining = body;
+
+    while (remaining.length > 0) {
+        if (remaining.length <= MAX_COMMENT_SIZE) {
+            chunks.push(remaining);
+            break;
+        }
+
+        // Find last newline before MAX_COMMENT_SIZE
+        let splitIndex = remaining.lastIndexOf('\n', MAX_COMMENT_SIZE);
+        if (splitIndex === -1) {
+            splitIndex = MAX_COMMENT_SIZE; // Fallback: hard split
+        }
+
+        chunks.push(remaining.substring(0, splitIndex));
+        remaining = remaining.substring(splitIndex + 1);
     }
 
-    if (quiteMode && hasNoChanges) {
-        core.info("Quite mode is enabled and there are no changes to the infrastructure.")
-        core.info("Skipping comment creation.")
-        process.exit(0);
+    // Add part headers if multiple chunks
+    if (chunks.length > 1) {
+        return chunks.map((chunk, i) =>
+            `**Part ${i + 1}/${chunks.length}**\n\n${chunk}`
+        );
     }
 
-    core.info("Adding comment to PR");
-    core.info(`Comment: ${output()}`);
-
-    octokit.rest.issues.createComment({
-        issue_number: context.issue.number,
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        body: output()
-    });
-} catch (error) {
-    core.setFailed(error.message);
+    return chunks;
 }
+
+(async () => {
+    try {
+        if (includePlanSummary) {
+            core.info("Adding plan output to job summary")
+            core.summary.addHeading('Terraform Plan Results').addRaw(output()).write()
+        }
+
+        if (context.eventName === 'pull_request') {
+            core.info(`Found PR # ${context.issue.number} from workflow context - proceeding to comment.`)
+        } else {
+            core.warning("Action doesn't seem to be running in a PR workflow context.")
+            core.warning("Skipping comment creation.")
+            process.exit(0);
+        }
+
+        if (quiteMode && hasNoChanges) {
+            core.info("Quite mode is enabled and there are no changes to the infrastructure.")
+            core.info("Skipping comment creation.")
+            process.exit(0);
+        }
+
+        const commentBody = output();
+        const chunks = splitComment(commentBody);
+
+        core.info(`Adding ${chunks.length} comment(s) to PR`);
+        core.info(`Comment: ${commentBody}`);
+
+        for (const chunk of chunks) {
+            await octokit.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: chunk
+            });
+        }
+    } catch (error) {
+        core.setFailed(error.message);
+    }
+})();
