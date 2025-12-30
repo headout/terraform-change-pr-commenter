@@ -12826,10 +12826,22 @@ const myToken = core.getInput('github-token');
 const octokit = github.getOctokit(myToken);
 const context = github.context;
 const inputFilenames = core.getMultilineInput('json-file');
-const commentHeader = core.getMultilineInput('comment-header');
-const commentFooter = core.getMultilineInput('comment-footer');
-const quiteMode = core.getMultilineInput('quite');
-const includeLinkToWorkflow = core.getMultilineInput('include-workflow-link');
+const headerFile = core.getInput('header-file');
+const footerFile = core.getInput('footer-file');
+const commentHeaderInput = core.getMultilineInput('comment-header');
+const commentFooterInput = core.getMultilineInput('comment-footer');
+const quietMode = core.getInput('quiet') === 'true';
+const includeLinkToWorkflow = core.getInput('include-workflow-link') === 'true';
+
+// Read header from file if provided, otherwise use comment-header input
+const commentHeader = headerFile && fs.existsSync(headerFile)
+    ? fs.readFileSync(headerFile, 'utf8').trim()
+    : commentHeaderInput.join('\n');
+
+// Read footer from file if provided, otherwise use comment-footer input
+const commentFooter = footerFile && fs.existsSync(footerFile)
+    ? fs.readFileSync(footerFile, 'utf8').trim()
+    : commentFooterInput.join('\n');
 
 
 const workflowLink = includeLinkToWorkflow ? `
@@ -12891,7 +12903,7 @@ ${details("delete", resources_to_delete, "-")}
 ${details("update", resources_to_update, "!")}
 ${details("replace", resources_to_replace, "+")}
 </details>
-${commentFooter.map(a => a == '' ? '\n' : a).join('\n')}
+${commentFooter}
 ${workflowLink}
 `
             } else {
@@ -12979,8 +12991,8 @@ const splitComment = (body) => {
             process.exit(0);
         }
 
-        if (quiteMode && hasNoChanges) {
-            core.info("Quite mode is enabled and there are no changes to the infrastructure.")
+        if (quietMode && hasNoChanges) {
+            core.info("Quiet mode is enabled and there are no changes to the infrastructure.")
             core.info("Skipping comment creation.")
             process.exit(0);
         }

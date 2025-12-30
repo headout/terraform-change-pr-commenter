@@ -28,11 +28,19 @@ inputs:
     description: Footer to use for the comment
     required: false
     default: ""
+  header-file:
+    description: File path to read header content from (overrides comment-header)
+    required: false
+    default: ""
+  footer-file:
+    description: File path to read footer content from (overrides comment-footer)
+    required: false
+    default: ""
   include-workflow-link:
     description: If true, include a link to the workflow in the comment
     required: false
     default: false
-  quite:
+  quiet:
     description: Skips the comment if there are no changes
     required: false
     default: false
