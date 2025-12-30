@@ -12991,13 +12991,20 @@ const splitComment = (body) => {
         core.info(`Adding ${chunks.length} comment(s) to PR`);
         core.info(`Comment: ${commentBody}`);
 
-        for (const chunk of chunks) {
-            await octokit.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: chunk
-            });
+        for (let i = 0; i < chunks.length; i++) {
+            core.info(`Posting comment ${i + 1} of ${chunks.length}...`);
+            try {
+                const response = await octokit.rest.issues.createComment({
+                    issue_number: context.issue.number,
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    body: chunks[i]
+                });
+                core.info(`Comment ${i + 1} posted successfully. URL: ${response.data.html_url}`);
+            } catch (commentError) {
+                core.error(`Failed to post comment ${i + 1}: ${commentError.message}`);
+                throw commentError;
+            }
         }
     } catch (error) {
         core.setFailed(error.message);
